@@ -35,6 +35,15 @@ Para o desenvolvimento deste projeto foram utilizadas as seguintes ferramentas e
     <th>
         <img src="https://img.daisyui.com/images/daisyui-logo/daisyui-logotype.svg" alt="Alt text" title="React" style="display: inline-block; margin: 0 auto; width: 60px">
     </th>
+    <th>
+        <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/docker/docker-original.svg" alt="Alt text" title="Docker" style="display: inline-block; margin: 0 auto; width: 60px">
+    </th>
+    <th>
+        <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nginx/nginx-original.svg" alt="Alt text" title="Nginx" style="display: inline-block; margin: 0 auto; width: 60px">
+    </th>
+    <th>
+        <img src="https://www.svgrepo.com/show/349466/openvpn.svg" alt="Alt text" title="OpenVPN" style="display: inline-block; margin: 0 auto; width: 60px">
+    </th>
   </thead>
 
   <tbody>
@@ -45,6 +54,9 @@ Para o desenvolvimento deste projeto foram utilizadas as seguintes ferramentas e
     <td>MySQL</td>
     <td>Tailwind</td>
     <td>DaisyUI</td>
+    <td>Docker</td>
+    <td>Nginx</td>
+    <td>OpenVPN</td>
   </tbody>
 </table>
 
