@@ -16,6 +16,7 @@ services:
       TOKEN_JWT: ${TOKEN_JWT}
     depends_on:
       - mysql
+    restart: always
 
   mysql:
     image: mysql:8
