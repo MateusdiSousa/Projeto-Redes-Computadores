@@ -64,11 +64,11 @@ Para o desenvolvimento deste projeto foram utilizadas as seguintes ferramentas e
 
 ## 1. Introdução
 
-Nesta relatório explicarei o passo-a-passo para a realização do projeto de Sistemas Operacionais II, atendendo os requisitos obrigatórios e hospedando a aplicação web em uma instância EC2 da AWS com o Debian, utilizando o acesso via SSH 
+Nesta relatório explicarei o passo-a-passo para a realização do projeto de Redes de Computadores, atendendo os requisitos obrigatórios e hospedando a aplicação web em uma instância EC2 da AWS com o Debian, implementando loadbalancer, VPN e utilizando Docker no desenvolvimento. 
 
 ## 2. Configuração da Máquina Virtual na AWS
 
-Para começar, criei uma instância elegível para o nível gratuito da AWS utilizando o sistema operacional Debian. A configuração inicial envolveu os seguintes passos:
+Para começar, criei 3 instâncias elegíveis para o nível gratuito da AWS utilizando o sistema operacional Debian. A configuração inicial envolveu os seguintes passos:
 
 **1. Criação da Instância:**
    - Através do console da AWS, criei uma nova instância EC2 selecionando o sistema operacional Debian.
@@ -79,46 +79,29 @@ Para começar, criei uma instância elegível para o nível gratuito da AWS util
   
 **3. Grupo de segurança:**
     <p>Nas configurações do grupo de segurança permiti o acesso as seguintes portas:</p>
+    - Máquina 1 (Backend)
     <ul>
         <li>3000: Porta que será utilizada pelo backend</li>
-        <li>3306: Porta que será utilizada pelo banco de dados (no nosso caso o mysql)</li>
+    </ul>
+    - Máquina 2 (Frontend, podendo ser mais máquinas de acordo com a necessidade)
+    <ul>
+        <li>80: Porta que será utilizado pelo frontend para hospedar o site</li>
+    </ul>
+    - Máquina 3 (Loadbalancer e Proxy Reverso)
+    <ul>
+        <li>1194: Porta que será utilizada para acessar a rede VPN</li>
     </ul>
 
 ## 3. Instalação de Serviços Essenciais
 
-Com a instância configurada e acessível, instalei os seguintes serviços necessários:
+### 3.1 Com a instância do FRONTEND configurada e acessível, instalei os seguintes serviços necessários:
 
-**1. Servidor WWW – Apache:**
-   ```bash
+   - **Servidor WWW – Apache:**
+   ``` bash
    sudo apt update
    sudo apt install apache2
    ```
    - Verifiquei o funcionamento acessando o endereço IPv4 público da instância.
-
-**2. Servidor de Banco de Dados – MySQL/MariaDB:**
-   ```bash
-   sudo apt install default-mysql-server
-   ```
-   - Instalei o MySQL.
-   
-   ```bash
-   sudo mysql -u root
-
-   ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'senha-de-root';
-
-   CREATE DATABASE nome-do-banco
-   ```
-   - Acessei o mysql de dados e adicionei uma senha para o usuário root e criei um banco de dados que será utilizado.
-
-**3. Outros Serviços:**
-   - **HTOP:** Para monitoramento de recursos.
-     ```bash
-     sudo apt install htop
-     ```
-   - **Net Tools:** Para ferramentas de rede essenciais.
-     ```bash
-     sudo apt install net-tools
-     ```
    - **Git:** Para controle de versão e deploy da aplicação.
      ```bash
      sudo apt install git
@@ -131,27 +114,51 @@ Com a instância configurada e acessível, instalei os seguintes serviços neces
      ```bash
      sudo apt install npm
      ```
-   - **NestJs:** Para utilizar os comandos do NestJs no terminal
+### 3.2 Com a instância do BACKEND configurada e acessível, instalei os seguintes serviços necessários:
+- **Git:** Para controle de versão e deploy da aplicação.
      ```bash
-     npm i -g @nestjs/cli
+     sudo apt-get update
+     sudo apt install git
+     ```
+- **Docker e Docker Compose:** Criação de containers.
+     ```bash
+     sudo apt install docker.io -y
+     sudo apt install docker-compose
+     ```
+
+### 3.3 Com a instância do LoadBalancer configurada e acessível, instalei os seguintes serviços necessários:
+- **Git:** Para controle de versão e deploy da aplicação.
+     ```bash
+     sudo apt-get update
+     sudo apt install git
+     ```
+- **OpenVPN:** Criação de VPN.
+     ```bash
+     sudo apt install openvpn
+     ```
+
+- **Nginx:** Servidor WWW.
+     ```bash
+     sudo apt install nginx
      ```
 
 ## :rocket: 4. Rodando o Projeto
 
-### 3.1 Clonar o projeto
+### 4.1 Rodando o frontend
+
 ```cmd
 git clone https://github.com/MateusdiSousa/Projeto-de-Sistemas-Operacionais.git
 ```
 
-### 3.2 Frontend
+### Configurando o frontend
 ```cmd
 sudo nano Projeto-de-Sistemas-Operacionais/frontend/src/services/api.tsx
 ```
-- E certificar que a url da variável do api esteja correspondente com a url pública instância:
+- E certificar que a url da variável do api esteja correspondente com a url pública da instância do backend:
 ```cmd
 import axios from "axios";
 
-const api = axios.create({baseURL : 'http://IPv4-público-da-instância:3000/'});
+const api = axios.create({baseURL : 'http://{IPV4-INSTÂNCIA DO BACKEND}:3000/'});
 
 export default api
 ```
@@ -159,11 +166,13 @@ export default api
 ```cmd
 cd Projeto-de-Sistemas-Operacionais/frontend
 npm install
+```
+- Modifique o seguinte arquivo:
+```cmd
 nano node_modules/jwt-decode/build/esm/index.d.ts
 ```
-Adicione o seguinte campo:
-
-```
+- Adicione o seguinte campo:
+```cmd
 export interface JwtPayload {
     iss?: string;
     sub?: string;
@@ -172,9 +181,8 @@ export interface JwtPayload {
     nbf?: number;
     iat?: number;
     jti?: string;
-    role?: any;
+    role?: any; #adicione o campo role.
 }
-
 ```
 Libere o módulo de reescrita
 ```
@@ -228,37 +236,32 @@ Logo após isso crie o arquivo .htaccess na pasta /var/www/dist
 </IfModule>
 ```
 
-### 3.3 Backend
-- para rodar o backend do projeto, você deve usar os comandos: 
-
+### 4.2 Rodando o Backend
+- para rodar o backend do projeto, você deve usar os comandos:
+```cmd
+ git clone https://github.com/MateusdiSousa/Projeto-de-Sistemas-Operacionais.git
+```
+- crie o arquivo .env no projeto 
 ```cmd
 cd Projeto-de-Sistemas-Operacionais/backend
-npm install
-npm install --save @nestjs/typeorm typeorm mysql2
-
+cat .env-example.txt > .env
 ```
-
-- depois você deve criar o arquivo .env: 
+- depois disso edite o arquivo .env com os seguintes dados:
 ```cmd
-sudo touch .env
+nano .env
 ```
-- E configurar com as seguintes informações
+  
 ```cmd
-sudo nano .env
-```
-```cmd
-DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=sua-senha
-DATABASE=nome-do-banco-de-dados
-TOKEN_JWT=coloque-qualquer-coisa
+DB_PASSWORD=fatec
+DATABASE=redes
+TOKEN_JWT=fatec
 ```
-
 - Então na raiz do backend execute o seguinte comando 
 
 ```cmd
-nest start
+docker-compose up
 ```
 
 ### 3.4 Load Balancer
