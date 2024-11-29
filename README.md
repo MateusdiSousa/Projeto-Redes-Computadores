@@ -258,7 +258,48 @@ DB_PASSWORD=fatec
 DATABASE=redes
 TOKEN_JWT=fatec
 ```
-- Então na raiz do backend execute o seguinte comando 
+- Então na raiz do backend haverá um arquivo chamado *compose.yml*:
+```cmd
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "3000:3000"
+    networks:
+      - my-network
+    environment:
+      DB_HOST: "mysql"
+      DB_PORT: 3306 
+      DB_USER: "root"
+      DB_PASSWORD: ${DB_PASSWORD}
+      DATABASE: ${DATABASE}
+      TOKEN_JWT: ${TOKEN_JWT}
+    depends_on:
+      - mysql
+    restart: always
+
+  mysql:
+    image: mysql:8
+    ports:
+      - "${DB_PORT}:3306"
+    networks:
+      - my-network
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE}
+    volumes:
+      - db_data:/var/lib/mysql
+
+networks:
+  my-network:
+
+volumes:
+  db_data:
+```
+- Execute o seguinte comando para subir os containers do docker. 
 
 ```cmd
 docker-compose up
@@ -266,23 +307,22 @@ docker-compose up
 
 ### 3.4 Load Balancer
 
-- Instale o nginx
-  ```cmd
-  sudo apt install nginx
-  ```
-- Crie um arquivo de configuração na pasta /etc/nginx/conf.d/loadbalancer.conf
-
+- Crie um arquivo de configuração na pasta /etc/nginx/conf.d/loadbalancer.conf com o seguinte comando:
+```cmd
+sudo nano /etc/nginx/conf.d/loadbalancer.conf
+``` 
+- E seguinda adicione a seguinte configuração
 ```cmd
 upstream frontend{
-	server ip_publico1;
+	# adicione os endereços públicos da máquinas que estão hospedando o site
+	server ip_publico1; 
 	server ip_publico2;
 	server ip_publico3;
 }
 
 server {
-	listen 80;
+	listen 192.168.0.100; # esse será o endereço que o usuário irá acessar o loadbalancer quando estiver conectado à VPN
 	
-
 	location / {
 		proxy_pass http://frontend;
 	        proxy_set_header Host $host;
@@ -301,10 +341,81 @@ server {
 }
 
 ```
+### 3.5 VPN
+- Após a configuração do loadbalancer o usuário deveŕa configurar a rede VPN. começando pela configuração do servidor VPN:
+- Crie o arquivo server.conf com o seguinte comando:
+```cmd
+sudu su
+cd /etc/openvpn
+nano server.conf
+```
+- e adicione os seguintes dados:
+```
+dev tun # Dispositivo virtual de túnel (tun) para transporte de pacotes IP
+ifconfig 192.168.0.100 192.168.0.200 # O primeiro endereço IP será atribuído ao servidor, e o segundo será atribuído ao cliente
+port 1194 # Porta onde o servidor OpenVPN irá escutar conexões
+proto tcp-server # Protocolo TCP em modo servidor
+verb 4 # Nível de verbosidade dos logs (4 é um nível detalhado, mas sem excesso)
+keepalive 10 120 # Mantém a conexão ativa: verifica a cada 10 segundos, e reconecta se não houver resposta em 120 segundos
+persist-tun # Mantém a interface TUN ativa mesmo após reiniciar a conexão
+persist-key # Mantém a chave privada carregada mesmo após reiniciar a conexão
+comp-lzo # Ativa a compressão de dados LZO
+secret /etc/openvpn/chave.key # Caminho para o arquivo de chave estática usada para autenticação e criptografia
+cipher AES256 # algoritmo de criptografia utilizado
+```
 
-- reinicie o nginx com o seguinte comando:
-  ```cmd
-  systemctl restart ngnix.service
-  ```
+- após isso faça um cópia da configuração do servidor para criar a configuração do cliente:
+```cmd
+cat server.conf > client.conf
+```
+
+- depois modifique o arquivo client.conf:
+```cmd
+nano client.conf
+```
+```cmd
+dev tun
+ifconfig 192.168.0.200 192.168.0.100
+remote {ENDEREÇO IP DA INSTÂNCIA ONDE ESTÁ A VPN}
+port 1194
+proto tcp-client
+verb 4
+keepalive 10 120
+persist-tun
+persist-key
+float
+comp-lzo
+secret chave.key
+cipher AES256
+```
+- Após isso deverá ser gerada a chave de acesso da vpn com o seguinte comando:
+```cmd
+openvpn --genkey --secret chave.key
+```
+- Então você deverá modificar o acesso dos arquivos *chave.key* e *client.conf*
+```cmd
+chmod 777 chave.key
+chmod 777 client.conf
+```
+- Depois copie os dois arquivos para o computador que será cliente usando o comando scp por exemplo:
+```cmd
+scp -i /caminho/para/chave_privada usuario@host:/etc/openvpn/client.conf arquivo_destino
+scp -i /caminho/para/chave_privada usuario@host:/etc/openvpn/chave.conf arquivo_destino
+```
+- Após isso deverá iniciar a VPN no lado do servidor com o seguinte comando:
+```cmd
+openvpn --config /etc/openvpn/server.conf
+```
+- Em seguida conecte-se a VPN no lado do cliente com o próximo comando:
+```cmd
+sudo openvpn --config arquivo/destino/client.conf
+```
+
+- Após realizar a conexão com a VPN, na instância do servidor inicie o nginx com o seguinte comando:
+```cmd
+sudo systemctl restart ngnix.service
+```
+
+#### Após realizar todos os passos todo o ambiente deverá estar configurado.
 
 
